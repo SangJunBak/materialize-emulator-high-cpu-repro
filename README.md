@@ -4,12 +4,10 @@ This demo sets up a pipeline using Materialize, Redpanda (Kafka), and the Materi
 
 ## Setup
 
-1. Create the following directory structure:
-```
-your-project/
-├── docker-compose.yml
-└── schemas/
-    └── schema.json
+1. Clone the repository:
+```bash
+git clone git@github.com:bobbyiliev/materialize-emulator-subscribe-poc.git
+cd materialize-emulator-subscribe-poc
 ```
 
 2. Start the services:
@@ -31,30 +29,40 @@ psql -h localhost -p 6877 -U mz_system materialize
 
 ## Create Required Objects
 
-1. Create the Kafka connection:
-```sql
-CREATE CONNECTION redpanda_kafka TO KAFKA (
-    BROKER = 'redpanda:9092',
-    SECURITY PROTOCOL = 'PLAINTEXT'
-);
-```
+1. **Create a Secret for PostgreSQL Password:**
+    ```sql
+    CREATE SECRET pgpass AS 'postgres';
+    ```
 
-2. Create the Kafka source:
-```sql
-CREATE SOURCE mz_datagen_source
-FROM KAFKA CONNECTION redpanda_kafka (
-    TOPIC 'mz_datagen_test'
-) FORMAT JSON;
-```
+1. **Create PostgreSQL Connection:**
+    ```sql
+    CREATE CONNECTION pg_connection TO POSTGRES (
+        HOST 'postgres',
+        PORT 5432,
+        USER 'postgres',
+        PASSWORD SECRET pgpass,
+        SSL MODE 'disable',
+        DATABASE 'postgres'
+    );
+    ```
 
-3. Create a materialized view:
-```sql
-CREATE MATERIALIZED VIEW datagen_view AS
-    SELECT
-        (data->>'id')::int AS id,
-        data->>'name' AS name
-    FROM mz_datagen_source;
-```
+1. **Create the Source from PostgreSQL:**
+    ```sql
+    CREATE SOURCE mz_source
+    FROM POSTGRES CONNECTION pg_connection (PUBLICATION 'mz_source')
+    FOR ALL TABLES;
+    ```
+
+1. **Create a Materialized View:**
+    ```sql
+    CREATE MATERIALIZED VIEW datagen_view AS
+        SELECT * FROM products;
+    ```
+
+1. **Verify Data Flow:**
+    ```sql
+    SELECT * FROM datagen_view LIMIT 5;
+    ```
 
 > [!TIP]
 > `CREATE INDEX` creates an in-memory index on a source, view, or materialized view. For more information, see the [Materialize documentation](https://materialize.com/docs/sql/create-index/).
@@ -84,12 +92,9 @@ SELECT count(*) FROM datagen_view;
 
 - The datagen service will generate:
   - 10,024 records (`-n 10024`)
-  - With a write interval of 5000ms (`-w 5000`)
-  - In JSON format (`-f json`)
-  - Using the schema defined in `/schemas/schema.json`
-  - Data will include:
-    - An incremental ID
-    - A randomly generated username
+  - With a write interval of 2000ms (`-w 2000`)
+  - In Postgres format (`-f postgres`)
+  - Using the schema defined in `/schemas/products.sql`
 
 ## Troubleshooting
 
@@ -99,9 +104,9 @@ If you don't see data flowing:
 docker compose ps
 ```
 
-2. Check Redpanda logs:
+2. Check Postgres logs:
 ```bash
-docker compose logs redpanda
+docker compose logs postgres
 ```
 
 3. Check datagen logs:
@@ -109,18 +114,24 @@ docker compose logs redpanda
 docker compose logs datagen
 ```
 
-4. Verify Kafka topic:
+4. Verify the source:
 ```sql
 SHOW SOURCES;
 ```
+
+5. Check the source status:
+```sql
+SELECT * FROM mz_internal.mz_source_statuses;
+```
+   If the source status is not with `running` status, the `SUBSCRIBE` command will not return any data as no new data is received.
 
 ## Using `SUBSCRIBE`
 
 You can use the `SUBSCRIBE` command to see the data as it flows in:
 ```sql
-COPY (SUBSCRIBE mz_datagen_source) TO STDOUT;
+COPY (SUBSCRIBE datagen_view) TO STDOUT;
 -- Subscribe with no snapshot:
-COPY (SUBSCRIBE mz_datagen_source WITH(SNAPSHOT FALSE)) TO STDOUT;
+COPY (SUBSCRIBE datagen_view WITH(SNAPSHOT FALSE)) TO STDOUT;
 ```
 
 ## Using `SUBSCRIBE` with Python and psycopg2
@@ -141,9 +152,11 @@ Output:
 
 ```py
 Waiting for updates...
-(Decimal('1729773847000'), False, 1, 310, 'Jon')
-(Decimal('1729773852000'), False, 1, 311, 'Jane')
-(Decimal('1729773857000'), False, 1, 312, 'Laurie')
+(Decimal('1729786668000'), False, 1, 90817, 'Alec89', '53188', '41846', 1, None)
+(Decimal('1729786670000'), False, 1, 96566, 'Christina_Herzog2', '52301', '71868', 1, None)
+(Decimal('1729786672000'), False, 1, 19028, 'Hudson_Heller76', '66648', '24064', 1, None)
+(Decimal('1729786674000'), False, 1, 21478, 'Earnest_Ernser', '49801', '48775', 0, None)
+(Decimal('1729786676000'), False, 1, 20213, 'Thora_Schamberger', '62960', '67815', 1, None)
 ```
 
 ![simple-example-subscribe](https://github.com/user-attachments/assets/6c92dc54-3cae-4605-ab2a-2885dad0bb86)

@@ -1,6 +1,4 @@
 ---
-version: "3.9"
-
 services:
 
   materialized:
@@ -29,36 +27,71 @@ services:
       - 6878:6878
     healthcheck: {test: curl -f localhost:6878/api/readyz, interval: 1s, start_period: 35s}
 
-  redpanda:
-    image: docker.vectorized.io/vectorized/redpanda:v21.11.2
-    command:
-      - redpanda start
-      - --overprovisioned
-      - --smp 1
-      - --memory 1G
-      - --reserve-memory 0M
-      - --node-id 0
-      - --check=false
-      - --kafka-addr 0.0.0.0:9092
-      - --advertise-kafka-addr ${EXTERNAL_IP:-redpanda}:9092
-      - --pandaproxy-addr 0.0.0.0:8082
-      - --advertise-pandaproxy-addr ${EXTERNAL_IP:-redpanda}:8082
-      - --set redpanda.enable_transactions=true
-      - --set redpanda.enable_idempotence=true
+# Postgres example
+  postgres:
+    container_name: postgres
+    build:
+      context: ./postgres
+    volumes:
+     - ${PWD}/postgres:/docker-entrypoint-initdb.d
+    init: true
     ports:
-      - 9092:9092
-      - 8081:8081
-      - 8082:8082
-    healthcheck: {test: curl -f localhost:9644/v1/status/ready, interval: 1s, start_period: 30s}
+      - 5432:5432
+    restart: always
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
 
   datagen:
     image: materialize/datagen:latest
     container_name: datagen
     depends_on:
-      - redpanda
+      - postgres
+      - materialized
     environment:
-      KAFKA_BROKERS: redpanda:9092
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
     volumes:
       - ./schemas:/schemas
-    entrypoint:
-      datagen -s /schemas/schema.json -f json -n 10024 -w 2000 -d
+    entrypoint: >
+      sh -c "sleep 10 && datagen -s /schemas/products.sql -f postgres -n 10024 -w 2000 -d"
+
+# Kafka example
+
+  # redpanda:
+  #   image: docker.vectorized.io/vectorized/redpanda:v21.11.2
+  #   command:
+  #     - redpanda start
+  #     - --overprovisioned
+  #     - --smp 1
+  #     - --memory 1G
+  #     - --reserve-memory 0M
+  #     - --node-id 0
+  #     - --check=false
+  #     - --kafka-addr 0.0.0.0:9092
+  #     - --advertise-kafka-addr ${EXTERNAL_IP:-redpanda}:9092
+  #     - --pandaproxy-addr 0.0.0.0:8082
+  #     - --advertise-pandaproxy-addr ${EXTERNAL_IP:-redpanda}:8082
+  #     - --set redpanda.enable_transactions=true
+  #     - --set redpanda.enable_idempotence=true
+  #   ports:
+  #     - 9092:9092
+  #     - 8081:8081
+  #     - 8082:8082
+  #   healthcheck: {test: curl -f localhost:9644/v1/status/ready, interval: 1s, start_period: 30s}
+
+  # datagen2:
+  #   image: materialize/datagen:latest
+  #   container_name: datagen2
+  #   depends_on:
+  #     - redpanda
+  #   environment:
+  #     KAFKA_BROKERS: redpanda:9092
+  #   volumes:
+  #     - ./schemas:/schemas
+  #   entrypoint:
+  #     datagen -s /schemas/schema.json -f json -n 10024 -w 2000 -d
