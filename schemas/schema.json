@@ -1,0 +1,9 @@
+[
+    {
+        "_meta": {
+            "topic": "mz_datagen_test"
+        },
+        "id": "iteration.index",
+        "name": "faker.internet.userName()"
+    }
+]

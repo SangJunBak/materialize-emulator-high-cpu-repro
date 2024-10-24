@@ -1,0 +1,65 @@
+---
+version: "3.9"
+
+services:
+
+  materialized:
+    image: materialize/materialized:latest
+    container_name: materialized
+    command:
+      - '--cluster-replica-sizes={"3xsmall": {"workers": 1, "scale": 1, "credits_per_hour": "1"}, "2xsmall": {"workers": 1, "scale": 1, "credits_per_hour": "1"}, "25cc": {"workers": 1, "scale": 1, "credits_per_hour": "1"}, "50cc": {"workers": 1, "scale": 1, "credits_per_hour": "1"}}'
+      - --bootstrap-default-cluster-replica-size=3xsmall
+      - --bootstrap-builtin-system-cluster-replica-size=3xsmall
+      - --bootstrap-builtin-catalog-server-cluster-replica-size=3xsmall
+      - --bootstrap-builtin-support-cluster-replica-size=3xsmall
+      - --bootstrap-builtin-probe-cluster-replica-size=3xsmall
+      - --availability-zone=test1
+      - --availability-zone=test2
+      - --aws-account-id=123456789000
+      - --aws-external-id-prefix=eb5cb59b-e2fe-41f3-87ca-d2176a495345
+      - --aws-connection-role-arn=arn:aws:iam::123456789000:role/MaterializeConnection
+      - --system-parameter-default=max_clusters=100
+      - --system-parameter-default=max_sources=100
+      - --system-parameter-default=max_aws_privatelink_connections=10
+      - --all-features
+    environment:
+      MZ_NO_TELEMETRY: ${MZ_NO_TELEMETRY:-0}
+    ports:
+      - 6875:6875
+      - 6877:6877
+      - 6878:6878
+    healthcheck: {test: curl -f localhost:6878/api/readyz, interval: 1s, start_period: 35s}
+
+  redpanda:
+    image: docker.vectorized.io/vectorized/redpanda:v21.11.2
+    command:
+      - redpanda start
+      - --overprovisioned
+      - --smp 1
+      - --memory 1G
+      - --reserve-memory 0M
+      - --node-id 0
+      - --check=false
+      - --kafka-addr 0.0.0.0:9092
+      - --advertise-kafka-addr ${EXTERNAL_IP:-redpanda}:9092
+      - --pandaproxy-addr 0.0.0.0:8082
+      - --advertise-pandaproxy-addr ${EXTERNAL_IP:-redpanda}:8082
+      - --set redpanda.enable_transactions=true
+      - --set redpanda.enable_idempotence=true
+    ports:
+      - 9092:9092
+      - 8081:8081
+      - 8082:8082
+    healthcheck: {test: curl -f localhost:9644/v1/status/ready, interval: 1s, start_period: 30s}
+
+  datagen:
+    image: materialize/datagen:latest
+    container_name: datagen
+    depends_on:
+      - redpanda
+    environment:
+      KAFKA_BROKERS: redpanda:9092
+    volumes:
+      - ./schemas:/schemas
+    entrypoint:
+      datagen -s /schemas/schema.json -f json -n 10024 -w 5000 -d
