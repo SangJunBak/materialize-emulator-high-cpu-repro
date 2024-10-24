@@ -139,6 +139,8 @@ Waiting for updates...
 (Decimal('1729773857000'), False, 1, 312, 'Laurie')
 ```
 
+![simple-example-subscribe](https://github.com/user-attachments/assets/6c92dc54-3cae-4605-ab2a-2885dad0bb86)
+
 ## Cleanup
 
 Stop the services:
