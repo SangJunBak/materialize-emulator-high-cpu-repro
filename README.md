@@ -189,6 +189,19 @@ docker compose logs
 docker stats materialized
 ```
 
+### Check Source Status
+
+If Materialize is not receiving data from the source, you will not see any data when running `SUBSCRIBE` without a snapshot. To check the source status, run the following queries:
+
+```sql
+-- Get the source name:
+SHOW SOURCES;
+
+-- Check source status:
+SELECT * FROM mz_internal.mz_source_statuses
+WHERE name = 'SOURCE_NAME';
+```
+
 ## Cleanup
 
 Stop the services:
