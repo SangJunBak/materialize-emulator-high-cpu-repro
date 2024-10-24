@@ -141,6 +141,47 @@ Waiting for updates...
 
 ![simple-example-subscribe](https://github.com/user-attachments/assets/6c92dc54-3cae-4605-ab2a-2885dad0bb86)
 
+## Debugging Materialize
+
+### Check Container Status
+```bash
+# Check all containers status
+docker compose ps
+
+# Check container health
+docker compose ps materialized
+```
+
+### View Logs
+```bash
+# View Materialize logs
+docker compose logs materialized
+
+# Follow logs in real-time
+docker compose logs -f materialized | grep -v 'No such file or directory'
+
+# View last 100 lines
+docker compose logs --tail=100 materialized
+
+# Check all services logs
+docker compose logs
+```
+
+### Resource Management
+1. Docker Desktop Resource Limits
+   - Open Docker Desktop → Settings → Resources
+   - Recommended minimum settings:
+     - CPUs: 6
+     - Memory: 12GB
+     - Swap: 1GB
+   - Apply & Restart Docker Desktop
+
+2. Check Resource Usage
+```bash
+# View container resource usage
+docker stats materialized
+```
+
 ## Cleanup
 
 Stop the services:

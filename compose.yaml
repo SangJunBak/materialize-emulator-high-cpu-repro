@@ -62,4 +62,4 @@ services:
     volumes:
       - ./schemas:/schemas
     entrypoint:
-      datagen -s /schemas/schema.json -f json -n 10024 -w 5000 -d
+      datagen -s /schemas/schema.json -f json -n 10024 -w 2000 -d
