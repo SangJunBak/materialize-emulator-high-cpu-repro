@@ -56,10 +56,17 @@ CREATE MATERIALIZED VIEW datagen_view AS
     FROM mz_datagen_source;
 ```
 
+> [!TIP]
+> `CREATE INDEX` creates an in-memory index on a source, view, or materialized view. For more information, see the [Materialize documentation](https://materialize.com/docs/sql/create-index/).
+> In Materialize, indexes store query results in memory within a [cluster](https://materialize.com/docs/concepts/clusters/), and keep these results incrementally updated as new data arrives. By making up-to-date results available in memory, indexes can help [optimize query performance](https://materialize.com/docs/transform-data/optimization/), both when serving results and maintaining resource-heavy operations like joins.
+
 4. Create an index to optimize queries (optional):
 ```sql
 CREATE INDEX datagen_view_idx ON datagen_view (id);
 ```
+
+> [!TIP]
+> Running `SUBSCRIBE` on an unindexed view can be slow and resource-intensive as it requires a full scan of the view/table/source.
 
 ## Verify Setup
 

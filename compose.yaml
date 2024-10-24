@@ -20,7 +20,6 @@ services:
       - --aws-connection-role-arn=arn:aws:iam::123456789000:role/MaterializeConnection
       - --system-parameter-default=max_clusters=100
       - --system-parameter-default=max_sources=100
-      - --system-parameter-default=max_aws_privatelink_connections=10
       - --all-features
     environment:
       MZ_NO_TELEMETRY: ${MZ_NO_TELEMETRY:-0}
